@@ -34,8 +34,11 @@ cloudinary.config(
   api_secret = os.getenv("CLOUDINARY_API_SECRET")
 )
 
-# 개발 환경에서 모든 출처의 요청을 허용합니다.
-CORS(app)
+# CORS 설정: Vercel 프론트엔드 URL을 명시적으로 허용합니다.
+# 와일드카드(*)를 사용하거나, 여러 URL을 리스트로 전달할 수 있습니다.
+CORS(app, resources={
+    r"/api/*": {"origins": "*"} # 모든 출처에서의 /api/ 경로 요청을 허용 (또는 특정 Vercel URL을 지정)
+})
 
 # 파일 업로드 및 결과 저장을 위한 폴더 설정
 UPLOAD_FOLDER = '/tmp/uploads'
@@ -57,7 +60,8 @@ def token_required(f):
             if not current_user:
                  return jsonify({'error': '유효하지 않은 토큰입니다!'}), 401
         except Exception as e:
-            return jsonify({'error': '유효하지 않은 토큰입니다!', 'details': str(e)}), 401
+            print(f"Token validation error: {e}") # 로그 추가
+            return jsonify({'error': '유효하지 않은 토큰입니다!'}), 401
         return f(current_user, *args, **kwargs)
     return decorated
 
@@ -74,7 +78,8 @@ def admin_required(f):
             if data.get('role') != 'admin':
                 return jsonify({'error': '관리자 권한이 필요합니다.'}), 403
         except Exception as e:
-            return jsonify({'error': '유효하지 않은 토큰입니다!', 'details': str(e)}), 401
+            print(f"Admin token validation error: {e}") # 로그 추가
+            return jsonify({'error': '유효하지 않은 토큰입니다!'}), 401
         return f(*args, **kwargs)
     return decorated
 
@@ -241,6 +246,7 @@ def create_post(current_user):
         return jsonify({'message': '게시물이 성공적으로 생성되었습니다.'}), 201
 
     except Exception as e:
+        print(f"Post creation error: {e}") # 로그 추가
         return jsonify({'error': f'게시물 생성 중 오류 발생: {str(e)}'}), 500
     finally:
         # 임시 파일들 삭제
@@ -313,6 +319,7 @@ def delete_post(current_user, post_id):
         
         return '', 204
     except Exception as e:
+        print(f"Post deletion error: {e}") # 로그 추가
         return jsonify({'error': f'게시물 삭제 중 오류 발생: {str(e)}'}), 500
 
 @app.route('/api/users/me', methods=['DELETE'])
@@ -352,6 +359,7 @@ def delete_account(current_user):
             return jsonify({'message': '회원 탈퇴가 성공적으로 처리되었습니다.'}), 200
 
     except Exception as e:
+        print(f"Account deletion error: {e}") # 로그 추가
         return jsonify({'error': f'회원 탈퇴 중 오류 발생: {str(e)}'}), 500
 
 @app.route('/api/admin/set-role', methods=['POST'])
@@ -394,6 +402,7 @@ def get_violation_posts():
             results.append(post_data)
         return jsonify(results), 200
     except Exception as e:
+        print(f"Violation list fetch error: {e}") # 로그 추가
         return jsonify({'error': f'위반 게시물 조회 중 오류 발생: {str(e)}'}), 500
 
 @app.route('/api/users/me/posts', methods=['GET'])
@@ -442,6 +451,7 @@ def decrypt_image():
         return jsonify({'message': message or "메시지를 찾을 수 없습니다."})
 
     except Exception as e:
+        print(f"Decryption error: {e}") # 로그 추가
         return jsonify({'error': f'복호화 중 오류 발생: {str(e)}'}), 500
     finally:
         if 'input_path' in locals() and os.path.exists(input_path):
