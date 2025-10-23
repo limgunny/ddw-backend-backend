@@ -1,0 +1,10 @@
+Flask
+Flask-Cors
+Flask-PyMongo
+Flask-Bcrypt
+python-dotenv
+PyJWT
+cloudinary
+gunicorn
+numpy
+Pillow
