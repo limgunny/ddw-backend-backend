@@ -8,3 +8,4 @@ cloudinary
 gunicorn
 numpy
 Pillow
+opencv-python
