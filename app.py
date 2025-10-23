@@ -83,6 +83,10 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+@app.route('/')
+def index():
+    return jsonify({'message': 'Welcome to the DDW API!'}), 200
+
 @app.route('/api/register', methods=['POST'])
 def register():
     users = mongo.db.users
