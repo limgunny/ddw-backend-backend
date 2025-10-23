@@ -34,11 +34,15 @@ cloudinary.config(
   api_secret = os.getenv("CLOUDINARY_API_SECRET")
 )
 
-# CORS 설정: Vercel 프론트엔드 URL을 명시적으로 허용합니다.
-# 와일드카드(*)를 사용하거나, 여러 URL을 리스트로 전달할 수 있습니다.
-CORS(app, resources={
-    r"/api/*": {"origins": "*"} # 모든 출처에서의 /api/ 경로 요청을 허용 (또는 특정 Vercel URL을 지정)
-})
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+vercel_url = "https://ddw-stegano-frontend.vercel.app"
+
+origins = [frontend_url]
+if vercel_url not in origins:
+    origins.append(vercel_url)
+
+# 개발 및 배포 환경의 프론트엔드 URL을 모두 허용합니다.
+CORS(app, resources={r"/api/*": {"origins": origins}})
 
 # 파일 업로드 및 결과 저장을 위한 폴더 설정
 UPLOAD_FOLDER = '/tmp/uploads'
