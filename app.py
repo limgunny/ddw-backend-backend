@@ -311,7 +311,7 @@ def delete_post(current_user, post_id):
         # MongoDB에서 게시물 삭제
         mongo.db.posts.delete_one({'_id': ObjectId(post_id)})
         
-        return jsonify({'message': '게시물이 성공적으로 삭제되었습니다.'}), 200
+        return '', 204
     except Exception as e:
         return jsonify({'error': f'게시물 삭제 중 오류 발생: {str(e)}'}), 500
 
