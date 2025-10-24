@@ -34,19 +34,15 @@ cloudinary.config(
   api_secret = os.getenv("CLOUDINARY_API_SECRET")
 )
 
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-vercel_url = "https://ddw-stegano-frontend.vercel.app"
-
-origins = [frontend_url]
-if vercel_url not in origins:
-    origins.append(vercel_url)
-
-# 개발 및 배포 환경의 프론트엔드 URL을 모두 허용합니다.
-CORS(app, resources={r"/api/*": {"origins": origins}})
+# 개발 환경에서 모든 출처의 요청을 허용합니다.
+CORS(app)
 
 # 파일 업로드 및 결과 저장을 위한 폴더 설정
-UPLOAD_FOLDER = '/tmp/uploads'
-OUTPUT_FOLDER = '/tmp/outputs'
+UPLOAD_FOLDER = 'uploads'
+OUTPUT_FOLDER = 'outputs'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
@@ -187,9 +183,6 @@ def create_post(current_user):
         return jsonify({'error': '제목과 내용을 모두 입력해야 합니다.'}), 400
 
     try:
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
-
         filename = secure_filename(image_file.filename)
         unique_id = uuid.uuid4().hex
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_{filename}")
@@ -208,7 +201,7 @@ def create_post(current_user):
         post = {}
         image_to_upload = input_path
 
-        if not original_owner_email:
+        if not original_owner_email or '@' not in original_owner_email:
             # 2-1. 워터마크 없음 -> 새로 삽입
             output_filename = f"{unique_id}_encrypted.png"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
@@ -432,9 +425,6 @@ def decrypt_image():
         return jsonify({'error': '선택된 파일이 없습니다.'}), 400
 
     try:
-        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
-
         filename = secure_filename(image_file.filename)
         input_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{uuid.uuid4().hex}_{filename}")
         image_file.save(input_path)
@@ -456,7 +446,7 @@ def decrypt_image():
                 return jsonify({'message': found_user['email']})
 
         # 일치하는 사용자가 없으면 추출된 메시지 그대로 반환
-        return jsonify({'message': message or "메시지를 찾을 수 없습니다."})
+        return jsonify({'message': message if message and '@' in message else "워터마크가 검출되지 않았습니다. 정상적인 저작물입니다."})
 
     except Exception as e:
         print(f"Decryption error: {e}") # 로그 추가
