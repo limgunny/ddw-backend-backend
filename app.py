@@ -13,6 +13,7 @@ import cloudinary.uploader
 import re
 from werkzeug.utils import secure_filename
 import uuid
+from PIL import Image
 
 # SteganoDCT.py 파일에서 StegoDCT 클래스를 가져옵니다.
 from SteganoDCT import StegoDCT
@@ -204,6 +205,17 @@ def create_post(current_user):
 
         if not original_owner_email or '@' not in original_owner_email:
             # 2-1. 워터마크 없음 -> 새로 삽입
+            # 메타데이터(EXIF) 제거 로직 추가
+            try:
+                img = Image.open(input_path)
+                # 이미지 데이터만 추출하여 메타데이터 없이 새로 생성
+                data = list(img.getdata())
+                img_without_metadata = Image.new(img.mode, img.size)
+                img_without_metadata.putdata(data)
+                img_without_metadata.save(input_path) # 메타데이터가 제거된 이미지로 덮어쓰기
+            except Exception as e:
+                print(f"Metadata stripping failed: {e}") # 실패하더라도 프로세스는 계속 진행
+
             output_filename = f"{unique_id}_encrypted.png"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
             steganographer.encrypt(input_path, watermark_message, output_path, 'png')
