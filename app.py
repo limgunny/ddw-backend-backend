@@ -175,11 +175,12 @@ def create_post(current_user):
     image_file = request.files['image']
     title = request.form.get('title')
     content = request.form.get('content')
+    category = request.form.get('category') # 카테고리 추가
     watermark_message = current_user['email']
 
     if image_file.filename == '':
         return jsonify({'error': '선택된 파일이 없습니다.'}), 400
-    if not title or not content:
+    if not title or not content or not category:
         return jsonify({'error': '제목과 내용을 모두 입력해야 합니다.'}), 400
 
     try:
@@ -236,6 +237,7 @@ def create_post(current_user):
             'title': title,
             'content': content,
             'imageUrl': upload_result['secure_url'],
+            'category': category, # 카테고리 저장
             'authorEmail': current_user['email'],
             'createdAt': datetime.utcnow(),
             'views': 0,
@@ -259,13 +261,19 @@ def create_post(current_user):
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
     sort_by = request.args.get('sort', 'createdAt')
+    category = request.args.get('category')
     sort_order = -1  # 내림차순 정렬
 
     # 유효한 정렬 기준인지 확인
     if sort_by not in ['createdAt', 'views', 'likes']:
         sort_by = 'createdAt'
 
-    posts = mongo.db.posts.find().sort(sort_by, sort_order)
+    query = {}
+    if category:
+        # URL 디코딩이 필요할 수 있으나, Flask가 자동으로 처리해 줌
+        query['category'] = category
+
+    posts = mongo.db.posts.find(query).sort(sort_by, sort_order)
     result = []
     for post in posts:
         post['createdAt'] = post['createdAt'].isoformat()
