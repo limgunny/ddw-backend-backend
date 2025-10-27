@@ -9,3 +9,4 @@ gunicorn
 numpy
 Pillow
 opencv-python
+dnspython

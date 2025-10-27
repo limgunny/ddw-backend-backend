@@ -258,7 +258,14 @@ def create_post(current_user):
 
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
-    posts = mongo.db.posts.find().sort('createdAt', -1)
+    sort_by = request.args.get('sort', 'createdAt')
+    sort_order = -1  # 내림차순 정렬
+
+    # 유효한 정렬 기준인지 확인
+    if sort_by not in ['createdAt', 'views', 'likes']:
+        sort_by = 'createdAt'
+
+    posts = mongo.db.posts.find().sort(sort_by, sort_order)
     result = []
     for post in posts:
         post['createdAt'] = post['createdAt'].isoformat()
