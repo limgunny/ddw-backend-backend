@@ -204,20 +204,10 @@ def create_post(current_user):
 
         if not original_owner_email or '@' not in original_owner_email:
             # 2-1. 워터마크 없음 -> 새로 삽입
-            # 먼저 이미지를 PNG로 변환하여 워터마크 삽입 안정성 확보
-            png_temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_temp.png")
-            try:
-                from PIL import Image
-                img = Image.open(input_path)
-                img.save(png_temp_path, 'PNG')
-            except Exception as e:
-                print(f"Image conversion to PNG failed: {e}")
-                return jsonify({'error': '이미지 처리 중 오류가 발생했습니다.'}), 500
-
             output_filename = f"{unique_id}_encrypted.png"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-            steganographer.encrypt(png_temp_path, watermark_message, output_path, 'png') # PNG 파일에 워터마크 삽입
-            image_to_upload = output_path # 최종 업로드할 이미지는 워터마크가 삽입된 PNG
+            steganographer.encrypt(input_path, watermark_message, output_path, 'png')
+            image_to_upload = output_path
             post = { 'isViolation': False }
         
         elif current_user['email'].startswith(original_owner_email) and len(current_user['email']) - len(original_owner_email) <= 1:
@@ -265,8 +255,6 @@ def create_post(current_user):
         # 임시 파일들 삭제
         if 'input_path' in locals() and os.path.exists(input_path):
             os.remove(input_path)
-        if 'png_temp_path' in locals() and os.path.exists(png_temp_path):
-            os.remove(png_temp_path)
         if 'output_path' in locals() and 'output_path' in locals() and os.path.exists(output_path):
             os.remove(output_path)
 
