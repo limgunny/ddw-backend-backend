@@ -10,3 +10,5 @@ numpy
 Pillow
 opencv-python
 dnspython
+flask-socketio
+eventlet
