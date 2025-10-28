@@ -13,6 +13,7 @@ import cloudinary.uploader
 import re
 from werkzeug.utils import secure_filename
 import uuid
+from PIL import Image, ImageOps
 
 # SteganoDCT.py 파일에서 StegoDCT 클래스를 가져옵니다.
 from SteganoDCT import StegoDCT
@@ -172,6 +173,45 @@ def create_post(current_user):
     if 'image' not in request.files:
         return jsonify({'error': '이미지 파일이 필요합니다.'}), 400
 
+    def preprocess_image(input_path: str, output_path: str, max_long_side: int = 1280, quality: int = 90) -> str:
+        """
+        이미지 크기를 조정하고 메타데이터를 제거하여 표준 JPEG로 재압축합니다.
+        이는 다양한 원본 이미지의 워터마킹 호환성을 높입니다.
+        """
+        try:
+            with Image.open(input_path) as img:
+                # EXIF 데이터를 기반으로 이미지 자동 회전
+                # 스마트폰 사진 등이 회전되는 문제 해결
+                img = ImageOps.exif_transpose(img)
+
+                # 1. 해상도 및 크기 축소 (Resizing)
+                width, height = img.size
+                if width > max_long_side or height > max_long_side:
+                    if width > height:
+                        new_width = max_long_side
+                        new_height = int(height * (max_long_side / width))
+                    else:
+                        new_height = max_long_side
+                        new_width = int(width * (max_long_side / height))
+                    
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+                # RGB로 변환 (JPEG 저장에 필요)
+                if img.mode != 'RGB':
+                    img = img.convert("RGB") 
+
+                # 2. 표준 JPEG로 재압축 (메타데이터 제거 포함)
+                img.save(
+                    output_path,
+                    format="JPEG",
+                    quality=quality,
+                    exif=b""  # 명시적으로 메타데이터 제거
+                )
+            return output_path
+        except Exception as e:
+            print(f"Image preprocessing failed: {e}")
+            raise ValueError("이미지 전처리 중 오류가 발생했습니다.")
+
     image_file = request.files['image']
     title = request.form.get('title')
     content = request.form.get('content')
@@ -204,10 +244,14 @@ def create_post(current_user):
 
         if not original_owner_email or '@' not in original_owner_email:
             # 2-1. 워터마크 없음 -> 새로 삽입
+            # 메타데이터 제거 및 표준화를 위해 이미지 전처리
+            preprocessed_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{unique_id}_preprocessed.jpg")
+            preprocess_image(input_path, preprocessed_path)
+
             output_filename = f"{unique_id}_encrypted.png"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-            steganographer.encrypt(input_path, watermark_message, output_path, 'png')
-            image_to_upload = output_path
+            steganographer.encrypt(preprocessed_path, watermark_message, output_path, 'png')
+            image_to_upload = output_path # 최종 업로드할 이미지는 워터마크가 삽입된 PNG
             post = { 'isViolation': False }
         
         elif current_user['email'].startswith(original_owner_email) and len(current_user['email']) - len(original_owner_email) <= 1:
@@ -255,6 +299,8 @@ def create_post(current_user):
         # 임시 파일들 삭제
         if 'input_path' in locals() and os.path.exists(input_path):
             os.remove(input_path)
+        if 'preprocessed_path' in locals() and os.path.exists(preprocessed_path):
+            os.remove(preprocessed_path)
         if 'output_path' in locals() and 'output_path' in locals() and os.path.exists(output_path):
             os.remove(output_path)
 
