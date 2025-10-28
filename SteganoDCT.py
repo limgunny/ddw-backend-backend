@@ -74,21 +74,16 @@ class StegoDCT:
             if file_size > self.max_file_size:
                 raise ValueError(f"입력 파일 크기 ({file_size} bytes)가 최대 허용 크기 ({self.max_file_size} bytes)를 초과합니다.")
 
-        # Pillow를 사용하여 이미지 열기 및 메타데이터 제거
-        try:
-            pil_img = Image.open(image_path)
-
-            # 메타데이터 제거 (EXIF 등)
-            # 픽셀 데이터만 사용하여 새 이미지 생성
-            data = list(pil_img.getdata())
-            image_without_metadata = Image.new(pil_img.mode, pil_img.size)
-            image_without_metadata.putdata(data)
-
-            # OpenCV에서 사용하기 위해 BGR 형식의 NumPy 배열로 변환
-            img = np.array(image_without_metadata.convert('RGB'))
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        except Exception as e:
-            raise ValueError(f"이미지를 열거나 처리하지 못했습니다: {e}")
+        # 이미지 읽기
+        img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        if img is None:
+            # OpenCV가 실패하면 PIL 사용 시도 (다양한 형식에 대한 지원)
+            try:
+                pil_img = Image.open(image_path)
+                img = np.array(pil_img.convert('RGB'))
+                img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            except Exception as e:
+                raise ValueError(f"이미지를 열지 못했습니다: {e}")
         
         # 이미지가 유효한지 확인
         if img.size == 0 or img.shape[0] < self.BLOCK_SIZE or img.shape[1] < self.BLOCK_SIZE:
