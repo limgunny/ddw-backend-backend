@@ -654,11 +654,16 @@ def handle_send_message(data):
         'createdAt': datetime.utcnow()
     }
     mongo.db.chats.insert_one(message)
+
+    # emit할 때는 datetime 객체를 문자열로 변환해야 함
+    emit_message = message.copy()
+    emit_message['_id'] = str(emit_message['_id'])
+    emit_message['createdAt'] = emit_message['createdAt'].isoformat()
     
     # 수신자의 룸으로 메시지 전송
-    emit('receive_message', message, room=receiver)
+    emit('receive_message', emit_message, room=receiver)
     # 송신자에게도 확인 메시지 전송 (UI 즉시 업데이트용)
-    emit('receive_message', message, room=sender)
+    emit('receive_message', emit_message, room=sender)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5001))
