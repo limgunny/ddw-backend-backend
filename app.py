@@ -653,11 +653,11 @@ def handle_send_message(data):
         'content': content,
         'createdAt': datetime.utcnow()
     }
-    mongo.db.chats.insert_one(message)
+    result = mongo.db.chats.insert_one(message)
 
     # emit할 때는 datetime 객체를 문자열로 변환해야 함
     emit_message = message.copy()
-    emit_message['_id'] = str(emit_message['_id'])
+    emit_message['_id'] = str(result.inserted_id)
     emit_message['createdAt'] = emit_message['createdAt'].isoformat()
     
     # 수신자의 룸으로 메시지 전송
