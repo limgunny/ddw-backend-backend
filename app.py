@@ -205,18 +205,18 @@ def create_post(current_user):
 
         if not original_owner_email or '@' not in original_owner_email:
             # 2-1. 워터마크 없음 -> 새로 삽입
-            # 메타데이터(EXIF) 제거 로직 추가
+            # 이미지를 열고 다시 저장하여 메타데이터 및 비표준 형식 문제를 제거합니다.
+            # 이는 이미지를 '캡처'하는 것과 유사한 효과를 냅니다.
             try:
                 img = Image.open(input_path)
-                # 이미지 데이터만 추출하여 메타데이터 없이 새로 생성
-                data = list(img.getdata())
-                img_without_metadata = Image.new(img.mode, img.size)
-                img_without_metadata.putdata(data)
-                # 메타데이터가 제거된 이미지로 덮어쓰기
-                img_without_metadata.save(input_path)
+                # RGBA 모드로 변환하여 투명도 등 다양한 이미지 형식을 일관되게 처리
+                img = img.convert('RGBA')
+                # 깨끗한 이미지로 임시 파일을 덮어씁니다. PNG로 저장하여 메타데이터를 제거합니다.
+                clean_input_path = os.path.splitext(input_path)[0] + ".png"
+                img.save(clean_input_path, 'PNG')
+                input_path = clean_input_path # 이후 프로세스에서 사용할 경로를 업데이트
             except Exception as e:
-                # 메타데이터 제거에 실패하더라도 프로세스는 계속 진행
-                print(f"Warning: Metadata stripping failed for {input_path}. Reason: {e}")
+                print(f"Warning: Image sanitization failed for {input_path}. Reason: {e}")
 
             output_filename = f"{unique_id}_encrypted.png"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
