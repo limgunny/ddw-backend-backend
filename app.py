@@ -13,7 +13,6 @@ import cloudinary.uploader
 import re
 from werkzeug.utils import secure_filename
 import uuid
-from PIL import Image
 
 # SteganoDCT.py 파일에서 StegoDCT 클래스를 가져옵니다.
 from SteganoDCT import StegoDCT
@@ -205,19 +204,6 @@ def create_post(current_user):
 
         if not original_owner_email or '@' not in original_owner_email:
             # 2-1. 워터마크 없음 -> 새로 삽입
-            # 이미지를 열고 다시 저장하여 메타데이터 및 비표준 형식 문제를 제거합니다.
-            # 이는 이미지를 '캡처'하는 것과 유사한 효과를 냅니다.
-            try:
-                img = Image.open(input_path)
-                # RGBA 모드로 변환하여 투명도 등 다양한 이미지 형식을 일관되게 처리
-                img = img.convert('RGBA')
-                # 깨끗한 이미지로 임시 파일을 덮어씁니다. PNG로 저장하여 메타데이터를 제거합니다.
-                clean_input_path = os.path.splitext(input_path)[0] + ".png"
-                img.save(clean_input_path, 'PNG')
-                input_path = clean_input_path # 이후 프로세스에서 사용할 경로를 업데이트
-            except Exception as e:
-                print(f"Warning: Image sanitization failed for {input_path}. Reason: {e}")
-
             output_filename = f"{unique_id}_encrypted.png"
             output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
             steganographer.encrypt(input_path, watermark_message, output_path, 'png')
