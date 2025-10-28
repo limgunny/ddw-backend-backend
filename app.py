@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_pymongo import PyMongo
-from flask_socketio import SocketIO, join_room, leave_room, send, emit
 from bson.objectid import ObjectId
 from flask_bcrypt import Bcrypt
 import os
@@ -28,10 +27,6 @@ app = Flask(__name__)
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
-
-# SocketIO 설정
-socketio = SocketIO(app, cors_allowed_origins="*")
-
 
 # Cloudinary 설정
 cloudinary.config(
@@ -574,97 +569,6 @@ def decrypt_image():
         if 'input_path' in locals() and os.path.exists(input_path):
             os.remove(input_path)
 
-@app.route('/api/chat/users', methods=['GET'])
-@token_required
-def get_chat_users(current_user):
-    """채팅 가능한 사용자 목록을 반환합니다 (자기 자신 제외)."""
-    try:
-        users = mongo.db.users.find({'email': {'$ne': current_user['email']}}, {'_id': 0, 'email': 1, 'name': 1})
-        return jsonify(list(users)), 200
-    except Exception as e:
-        return jsonify({'error': f'사용자 목록 조회 중 오류 발생: {str(e)}'}), 500
-
-@app.route('/api/chat/search-user', methods=['GET'])
-@token_required
-def search_chat_user(current_user):
-    """이메일로 채팅 사용자를 검색합니다."""
-    email_query = request.args.get('email', '')
-    if not email_query:
-        return jsonify([]), 200
-    
-    try:
-        # 부분 일치 검색, 대소문자 구분 없음, 자기 자신 제외
-        regex = re.compile(f'.*{re.escape(email_query)}.*', re.IGNORECASE)
-        users = mongo.db.users.find({'email': {'$regex': regex, '$ne': current_user['email']}}, {'_id': 0, 'email': 1, 'name': 1}).limit(10)
-        return jsonify(list(users)), 200
-    except Exception as e:
-        return jsonify({'error': f'사용자 검색 중 오류 발생: {str(e)}'}), 500
-
-@app.route('/api/chat/history/<receiver_email>', methods=['GET'])
-@token_required
-def get_chat_history(current_user, receiver_email):
-    """두 사용자 간의 채팅 기록을 반환합니다."""
-    try:
-        sender_email = current_user['email']
-        
-        # 두 사용자 간의 모든 메시지를 조회
-        messages = mongo.db.chats.find({
-            '$or': [
-                {'sender': sender_email, 'receiver': receiver_email},
-                {'sender': receiver_email, 'receiver': sender_email}
-            ]
-        }).sort('createdAt', 1)
-
-        result = []
-        for msg in messages:
-            msg['_id'] = str(msg['_id'])
-            msg['createdAt'] = msg['createdAt'].isoformat()
-            result.append(msg)
-            
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({'error': f'대화 기록 조회 중 오류 발생: {str(e)}'}), 500
-
-@socketio.on('connect')
-def handle_connect():
-    print('Client connected')
-
-@socketio.on('join')
-def handle_join(data):
-    """사용자가 자신의 고유 룸에 참여합니다."""
-    email = data.get('email')
-    if email:
-        join_room(email)
-        print(f'User {email} joined room {email}')
-
-@socketio.on('send_message')
-def handle_send_message(data):
-    """클라이언트로부터 메시지를 받아 처리합니다."""
-    sender = data.get('sender')
-    receiver = data.get('receiver')
-    content = data.get('content')
-
-    if not sender or not receiver or not content:
-        return
-
-    message = {
-        'sender': sender,
-        'receiver': receiver,
-        'content': content,
-        'createdAt': datetime.utcnow()
-    }
-    result = mongo.db.chats.insert_one(message.copy()) # 원본 message 객체를 DB에 저장
-
-    # emit할 때는 datetime 객체를 문자열로 변환해야 함
-    emit_message = message.copy()
-    emit_message['_id'] = str(result.inserted_id)
-    emit_message['createdAt'] = emit_message['createdAt'].isoformat()
-
-    # 수신자의 룸으로 메시지 전송
-    emit('receive_message', emit_message, room=receiver)
-    # 송신자에게도 확인 메시지 전송 (UI 즉시 업데이트용)
-    emit('receive_message', emit_message, room=sender)
-
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5001))
-    socketio.run(app, debug=True, port=port)
+    app.run(debug=True, port=port)
